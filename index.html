@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text-to-Speech</title>
+    <style>
+        body
+ {
+            font-family: Alef, sans-serif;
+            padding: 20px;
+            background-color: skyblue;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+        }
+        .container {
+            border: 2px solid #000;
+            padding: 20px;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 1000px;
+            line-height: 1.6;
+            font-size: 20px;
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow-y: auto;
+            max-height: 40vh;
+        }
+        .highlight-sentence {
+            animation: highlight-animation 0.5s ease forwards;
+        }
+        @keyframes highlight-animation {
+            0% { background-color: transparent; }
+            100% { background-color: yellow; }
+        }
+        select, button {
+            padding: 15px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 18px;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            width: 150px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .watermark {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 20px;
+            color: rgba(0, 0, 0, 0.1);
+            pointer-events: none;
+        }
+        h2.highlight-blue {
+            color: blue;
+        }
+        @media (max-width: 600px) {
+            .container {
+                width: 100%;
+                margin: 10px;
+                box-shadow: none;
+                max-height: 50vh;
+            }
+            select, button {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <label> <h2 class="highlight-blue">Text-to-Speech</h2></label>
+    
+    <div class="container" id="text-container" contenteditable="true">
+        <div id="text-input" placeholder="Type your text here..."></div>
+    </div>
+
+    <label for="voice-select">Select Voice:</label>
+    <select id="voice-select"></select>
+
+    <label for="speed-select">Speed:</label>
+    <select id="speed-select">
+        <option value="1.0">1x</option>
+        <option value="0.5">0.5x</option>
+        <option value="1.25">1.25x</option>
+        <option value="1.5">1.5x</option>
+        <option value="1.75">1.75x</option>
+        <option value="2.0">2x</option>
+        <option value="2.5">2.5x</option>
+        <option value="3.0">3x</option>
+    </select>
+
+    <button onclick="startReading()">Read</button>
+    <button onclick="refreshPage()">Refresh</button>
+
+    <h2 class="highlight-blue">App Advertisement</h2>
+    <p>Check out our app <strong>BRDLAI2</strong> which offers a variety of features to enhance your learning:</p>
+    <ul>
+        <li>AI Test Creation</li>
+        <li>AI Video Generation</li>
+        <li>Smart Timer</li>
+        <li>Flip Timer</li>
+        <li>Doubt Solving AI</li>
+        <li>AI PDF Converter</li>
+        <li>AI Text to PDF</li>
+    </ul>
+    <p>Download our app for free: <a href="https://drive.google.com/file/d/14S18Jb7OjLlyRzuCZAMUJ6eH7MSzjfzm/view?usp=drive_link" target="_blank"><button>Download BRDLAI2</button></a></p>
+
+    <h2 class="highlight-blue">Benefits</h2>
+    <ul>
+        <li>Enhances reading comprehension through audio and visual assistance.</li>
+        <li>Customizable reading speed to suit individual preferences.</li>
+        <li>User-friendly interface optimized for mobile devices.</li>
+    </ul>
+
+    <h2 class="highlight-blue">How to Use</h2>
+    <p>Follow these simple steps to utilize the text-to-speech feature:</p>
+    <ol>
+        <li>Enter or paste your text into the provided text area.</li>
+        <li>Select your desired voice and reading speed from the dropdown menus.</li>
+        <li>Click the "Read" button to start the text-to-speech functionality.</li>
+        <li>Enjoy the highlighted reading experience!</li>
+        <li>Click the "Refresh" button to clear the text area and start over.</li>
+    </ol>
+
+    <h2 class="highlight-blue">Copyright Claim</h2>
+    <p>&copy; 2024 BRDL-AI. All rights reserved.</p>
+    <p>Contact: <a href="mailto:monsterprince3633@gmail.com">monsterprince3633@gmail.com</a></p>
+
+    <div class="watermark">BRDL-AI</div>
+
+   <script>
+    const customVoices = {
+        "female": { name: "Google UK English Female", lang: "en-GB" },
+        "female-indian": { name: "Google Indian English Female", lang: "en-IN" },
+        "enthusiastic": { name: "Google US English Male", lang: "en-US" }
+    };
+
+    let speechSynthesis = window.speechSynthesis;
+    let currentSentenceIndex = 0;
+    let sentences = [];
+    let isReading = false;
+    let lastEditedIndex = -1;
+
+    // Load only custom voices
+    function loadVoices() {
+        const voiceSelect = document.getElementById('voice-select');
+        voiceSelect.innerHTML = ''; // Clear previous options
+
+        // Populate select options with custom voices
+        Object.keys(customVoices).forEach(key => {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = customVoices[key].name + ' (' + customVoices[key].lang + ')';
+            voiceSelect.appendChild(option);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', loadVoices);
+
+    function startReading() {
+        const textContainer = document.getElementById('text-container');
+        let text = textContainer.innerText.trim();
+
+        // Remove hashtags, dashes, and stars
+        text = text.replace(/[#*]/g, '').replace(/-/g, '');
+
+        // Split the text into sentences
+        sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+        currentSentenceIndex = lastEditedIndex >= 0 ? lastEditedIndex : 0;
+
+        if (currentSentenceIndex < 0 || currentSentenceIndex >= sentences.length) {
+            alert("Please enter some text to read.");
+            return;
+        }
+
+        if (isReading) {
+            speechSynthesis.cancel(); // Stop any ongoing speech
+        }
+
+        isReading = true; 
+        readSentence();
+    }
+
+    function readSentence() {
+        if (currentSentenceIndex < sentences.length) {
+            const sentence = sentences[currentSentenceIndex].trim();
+            const selectedVoiceKey = document.getElementById('voice-select').value;
+            const speed = parseFloat(document.getElementById('speed-select').value);
+
+            const textContainer = document.getElementById('text-container');
+            textContainer.innerHTML = sentences.map((s, index) => 
+                index === currentSentenceIndex ? `<span class="highlight-sentence">${s}</span>` : s
+            ).join(' ');
+
+            const highlightedSentence = textContainer.querySelector('.highlight-sentence');
+            const containerRect = textContainer.getBoundingClientRect();
+            const sentenceRect = highlightedSentence.getBoundingClientRect();
+
+            if (sentenceRect.bottom > containerRect.bottom || sentenceRect.top < containerRect.top) {
+                textContainer.scrollTop += sentenceRect.top - containerRect.top;
+            }
+
+            const utterance = new SpeechSynthesisUtterance(sentence);
+
+            const voice = speechSynthesis.getVoices().find(v => 
+                v.name === customVoices[selectedVoiceKey].name && v.lang === customVoices[selectedVoiceKey].lang
+            );
+            utterance.voice = voice;
+            utterance.rate = speed;
+
+            speechSynthesis.speak(utterance);
+
+            utterance.onend = function() {
+                currentSentenceIndex++;
+                setTimeout(readSentence, 90);
+            };
+        } else {
+            isReading = false; 
+            document.getElementById('text-container').innerHTML = sentences.join(' ');
+        }
+    }
+
+    function refreshPage() {
+        location.reload();
+    }
+</script>
+     <p>BRDL 2X APP FOR ADULTS ONLY 
+     scroll down !    For getting romantic movie 🎥 clips come in this app Download 🔥 now 👉
+         
+        password of app is 364133 and to get pass of prenium get membership of app <a href="
+
+https://drive.google.com/file/d/1km4zut6l2P3Grj6Es0-2peRMmrkZcWF1/view?usp=drive_link ye" target="_blank"><button>Download BRDL2X</button></a></p>
+ <p>BRDL AI1 FOR CONTENT CREATORS <a href="https://drive.google.com/file/d/1BTfBT5v9TeySgUFf5W5O8Se1suAuUwGP/view?usp=drive_link" target="_blank"><button>Download BRDL AI1</button></a></p>
+
+</body>
+</html>
+g
